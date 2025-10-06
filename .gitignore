@@ -1,0 +1,73 @@
+# Dependencies
+node_modules/
+
+# Build outputs
+/dist/
+/out/
+/build/
+/.webpack/
+public/ffmpeg.min.js
+
+# Logs and runtime data
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+*.log
+logs/
+*.pid
+*.seed
+*.pid.lock
+
+# Coverage / testing
+coverage/
+.nyc_output/
+
+# Environment files
+.env
+.env.*
+!.env.example
+
+# OS junk
+.DS_Store
+Thumbs.db
+desktop.ini
+$RECYCLE.BIN/
+*.tmp
+*.swp
+*.swo
+
+# Editor swaps & settings
+*.sublime-workspace
+*.sublime-project
+.idea/
+.vscode/
+*.code-workspace
+
+# Electron/packaging artifacts
+release/
+*.asar
+*.asar.unpacked
+**/electron-builder.yml
+
+# Python/Batch artifacts
+__pycache__/
+*.py[cod]
+*.spec
+*.egg-info/
+
+# Media outputs generated during experiments
+data/*.mp4
+data/*.wav
+!data/karaoke_six_stem.mp4
+
+# Local metadata
+*.iml
+*.orig
+*.rej
+*.bak
+*.old
+*.patch
+
+# Windows symlink reparse points
+*.lnk

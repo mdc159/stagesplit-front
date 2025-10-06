@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Karaoke Mixer Prototype</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header>
+    <input type="file" id="filePicker" accept="video/mp4" />
+    <button id="play" disabled>▶</button>
+    <button id="pause" disabled>⏸</button>
+    <button id="stop" disabled>⏹</button>
+    <span id="status" role="status" aria-live="polite"></span>
+  </header>
+
+  <video id="video" width="960" height="540" muted preload="metadata" playsinline></video>
+
+  <section id="mixer">
+    <!-- JS will populate six fader strips -->
+  </section>
+
+  <!-- Load @ffmpeg/ffmpeg (local first, CDN fallback) and then initialize renderer.js -->
+  <script type="module">
+    const FFMPEG_VERSION = '0.12.15';
+    const CORE_VERSION = '0.12.9';
+    const UTIL_VERSION = '0.12.2';
+
+    const moduleUrl = new URL('.', window.location.href);
+
+    const sources = [
+      {
+        label: 'local node_modules',
+        ffmpegModule: new URL('./node_modules/@ffmpeg/ffmpeg/dist/esm/index.js', moduleUrl).href,
+        utilModule: new URL('./node_modules/@ffmpeg/util/dist/esm/index.js', moduleUrl).href,
+        coreConfig: {
+          coreURL: new URL('./node_modules/@ffmpeg/core/dist/esm/ffmpeg-core.js', moduleUrl).href,
+          wasmURL: new URL('./node_modules/@ffmpeg/core/dist/esm/ffmpeg-core.wasm', moduleUrl).href
+        }
+      },
+      {
+        label: 'unpkg CDN',
+        ffmpegModule: `https://unpkg.com/@ffmpeg/ffmpeg@${FFMPEG_VERSION}/dist/esm/index.js?module`,
+        utilModule: `https://unpkg.com/@ffmpeg/util@${UTIL_VERSION}/dist/esm/index.js?module`,
+        coreConfig: {
+          coreURL: `https://unpkg.com/@ffmpeg/core@${CORE_VERSION}/dist/esm/ffmpeg-core.js`,
+          wasmURL: `https://unpkg.com/@ffmpeg/core@${CORE_VERSION}/dist/esm/ffmpeg-core.wasm`
+        }
+      },
+      {
+        label: 'jsDelivr CDN',
+        ffmpegModule: `https://cdn.jsdelivr.net/npm/@ffmpeg/ffmpeg@${FFMPEG_VERSION}/dist/esm/index.js?module`,
+        utilModule: `https://cdn.jsdelivr.net/npm/@ffmpeg/util@${UTIL_VERSION}/dist/esm/index.js?module`,
+        coreConfig: {
+          coreURL: `https://cdn.jsdelivr.net/npm/@ffmpeg/core@${CORE_VERSION}/dist/esm/ffmpeg-core.js`,
+          wasmURL: `https://cdn.jsdelivr.net/npm/@ffmpeg/core@${CORE_VERSION}/dist/esm/ffmpeg-core.wasm`
+        }
+      }
+    ];
+
+    async function loadFFmpeg() {
+      const failures = [];
+      for (const source of sources) {
+        try {
+          console.log(`Trying to load FFmpeg from: ${source.label}`);
+          const [ffmpegMod, utilMod] = await Promise.all([
+            import(/* @vite-ignore */ source.ffmpegModule),
+            import(/* @vite-ignore */ source.utilModule)
+          ]);
+          const FFmpegClass = ffmpegMod?.FFmpeg;
+          const fetchFile = utilMod?.fetchFile;
+          if (typeof FFmpegClass !== 'function') {
+            throw new Error('FFmpeg class export not found.');
+          }
+          if (typeof fetchFile !== 'function') {
+            throw new Error('fetchFile helper not found.');
+          }
+          console.log(`FFmpeg loaded from: ${source.label}`);
+          return {
+            FFmpegClass,
+            fetchFile,
+            coreConfig: source.coreConfig
+          };
+        } catch (error) {
+          console.warn(`FFmpeg load failed via ${source.label}:`, error);
+          failures.push({ source: source.label, error });
+        }
+      }
+      const err = new Error('All FFmpeg sources failed');
+      err.failures = failures;
+      throw err;
+    }
+
+    function presentFailure(error) {
+      const details = document.createElement('div');
+      details.style.position = 'fixed';
+      details.style.bottom = '16px';
+      details.style.left = '16px';
+      details.style.right = '16px';
+      details.style.maxHeight = '40vh';
+      details.style.overflow = 'auto';
+      details.style.background = 'rgba(16,16,24,0.92)';
+      details.style.border = '1px solid #444';
+      details.style.padding = '12px';
+      details.style.fontFamily = 'monospace';
+      details.style.fontSize = '12px';
+      details.style.color = '#f88';
+      details.textContent = `FFmpeg load failed. Details:\n${JSON.stringify(error, (key, value) => (value instanceof Error ? value.message : value), 2)}`;
+      document.body.appendChild(details);
+    }
+
+    loadFFmpeg()
+      .then(({ FFmpegClass, fetchFile, coreConfig }) =>
+        import('./renderer.js')
+          .then((mod) => {
+            if (mod && typeof mod.init === 'function') {
+              mod
+                .init({ FFmpegClass, fetchFile, coreConfig })
+                .catch((err) => {
+                  console.error('renderer init failed:', err);
+                  presentFailure(err);
+                });
+            } else {
+              const error = new Error('renderer.js does not export init()');
+              console.error(error);
+              presentFailure(error);
+            }
+          })
+          .catch((err) => {
+            console.error('Failed to load renderer.js as module:', err);
+            presentFailure(err);
+          })
+      )
+      .catch((error) => {
+        console.error('FFmpeg initialisation failed:', error);
+        presentFailure(error);
+        alert('Failed to load FFmpeg library. Please ensure the local node_modules assets are present or connect to the internet and try again.');
+      });
+  </script>
+</body>
+</html>
