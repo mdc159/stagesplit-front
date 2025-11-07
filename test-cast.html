@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>StageSplit - Cast Test</title>
+  <style>
+    body {
+      background: #0d0d0f;
+      color: #ddd;
+      font-family: 'Segoe UI', sans-serif;
+      padding: 20px;
+      max-width: 800px;
+      margin: 0 auto;
+    }
+    h1 { color: #33ff66; }
+    h2 { color: #33d0ff; margin-top: 40px; }
+    .test-section {
+      background: #1a1a1e;
+      padding: 20px;
+      border-radius: 8px;
+      margin: 20px 0;
+      border: 1px solid #3a3a43;
+    }
+    button {
+      background: #1f1f23;
+      border: 1px solid #3a3a43;
+      color: #eee;
+      padding: 10px 20px;
+      font-size: 14px;
+      border-radius: 4px;
+      cursor: pointer;
+      margin: 5px;
+    }
+    button:hover { background: #2c2c33; }
+    .success { color: #33ff66; }
+    .error { color: #ff6673; }
+    .info { color: #33d0ff; }
+    code {
+      background: #0d0d0f;
+      padding: 2px 6px;
+      border-radius: 3px;
+      font-family: 'Courier New', monospace;
+    }
+    ul { line-height: 1.8; }
+  </style>
+</head>
+<body>
+  <h1>🧪 StageSplit Cast Testing Guide</h1>
+
+  <div class="test-section">
+    <h2>Quick Test (No MP4 Required)</h2>
+    <p>Test the demo cast functionality without loading a six-stem MP4 file:</p>
+    <ol>
+      <li>Open DevTools Console (F12)</li>
+      <li>Run this command to enable demo mode without a file:
+        <pre><code>// Simulate having a loaded session
+state.isSessionReady = true;
+demoCastBtn.disabled = false;
+console.log('✓ Demo mode unlocked - click "🧪 Demo Cast" button');</code></pre>
+      </li>
+      <li>Click the <strong>🧪 Demo Cast</strong> button</li>
+      <li>A new window should open showing a simulated cast display</li>
+      <li>Test the sync offset controls in the main window</li>
+    </ol>
+  </div>
+
+  <div class="test-section">
+    <h2>What to Test</h2>
+    <h3 class="info">✓ Demo Cast Mode</h3>
+    <ul>
+      <li><strong>Button appears:</strong> 🧪 Demo Cast button is visible in header</li>
+      <li><strong>Window opens:</strong> New window opens with video display</li>
+      <li><strong>Status updates:</strong> Cast status changes to "🟢 Demo Casting (Window)"</li>
+      <li><strong>Controls appear:</strong> Sync offset controls panel becomes visible</li>
+      <li><strong>Disconnect works:</strong> Clicking "Disconnect" closes cast window</li>
+    </ul>
+
+    <h3 class="info">✓ Sync Offset Controls</h3>
+    <ul>
+      <li><strong>Slider:</strong> Drag slider left/right (-500ms to +500ms)</li>
+      <li><strong>Value updates:</strong> Offset value label updates in real-time</li>
+      <li><strong>Quick buttons:</strong>
+        <ul>
+          <li>"Audio Earlier (-50ms)" decreases offset</li>
+          <li>"Reset" returns to 0ms</li>
+          <li>"Audio Later (+50ms)" increases offset</li>
+        </ul>
+      </li>
+    </ul>
+
+    <h3 class="info">✓ Console Logging</h3>
+    <p>All cast operations log to console with <code>[Demo Cast]</code> prefix:</p>
+    <ul>
+      <li><code>[Demo Cast] Initiating demo cast mode...</code></li>
+      <li><code>[Demo Cast] Demo cast window opened successfully</code></li>
+      <li><code>[Demo Cast] Connected</code></li>
+      <li><code>[Demo Cast] Syncing play/pause to cast window</code></li>
+      <li><code>[Demo Cast] Disconnected</code></li>
+    </ul>
+  </div>
+
+  <div class="test-section">
+    <h2>Testing with a Real MP4 File</h2>
+    <p>To test with actual video playback:</p>
+    <ol>
+      <li>Start the app: <code>npm start</code></li>
+      <li>Load any MP4 file (doesn't need to be six-stem for basic casting test)</li>
+      <li>Click <strong>🧪 Demo Cast</strong></li>
+      <li>In the new window, video should play</li>
+      <li>In the main window, test:
+        <ul>
+          <li>Play/Pause controls sync to cast window</li>
+          <li>Sync offset slider adjusts audio timing</li>
+          <li>Faders control audio mix (audio stays local)</li>
+        </ul>
+      </li>
+    </ol>
+  </div>
+
+  <div class="test-section">
+    <h2>Real Cast Testing (Requires Hardware)</h2>
+    <p class="info">To test actual Chromecast functionality:</p>
+    <ul>
+      <li>You need a Chromecast, Smart TV, or compatible cast device</li>
+      <li>Computer and device must be on the same Wi-Fi network</li>
+      <li>Click <strong>📺 Cast</strong> (not Demo Cast)</li>
+      <li>Select your device from the browser's cast picker</li>
+      <li>Note: May not work without proper network setup</li>
+    </ul>
+  </div>
+
+  <div class="test-section">
+    <h2>Expected Behavior</h2>
+    <table style="width: 100%; border-collapse: collapse;">
+      <tr style="border-bottom: 1px solid #3a3a43;">
+        <th style="text-align: left; padding: 10px;">Action</th>
+        <th style="text-align: left; padding: 10px;">Expected Result</th>
+      </tr>
+      <tr style="border-bottom: 1px solid #2a2a33;">
+        <td style="padding: 10px;">Click Demo Cast</td>
+        <td style="padding: 10px;">New window opens, status shows "🟢 Demo Casting"</td>
+      </tr>
+      <tr style="border-bottom: 1px solid #2a2a33;">
+        <td style="padding: 10px;">Adjust sync slider</td>
+        <td style="padding: 10px;">Offset value updates, playback restarts with new timing</td>
+      </tr>
+      <tr style="border-bottom: 1px solid #2a2a33;">
+        <td style="padding: 10px;">Click Play</td>
+        <td style="padding: 10px;">Both main video and cast window video play</td>
+      </tr>
+      <tr style="border-bottom: 1px solid #2a2a33;">
+        <td style="padding: 10px;">Click Pause</td>
+        <td style="padding: 10px;">Both videos pause</td>
+      </tr>
+      <tr style="border-bottom: 1px solid #2a2a33;">
+        <td style="padding: 10px;">Close cast window</td>
+        <td style="padding: 10px;">Auto-disconnect, status returns to "🔴 Not Casting"</td>
+      </tr>
+      <tr>
+        <td style="padding: 10px;">Click Disconnect</td>
+        <td style="padding: 10px;">Cast window closes, controls hidden</td>
+      </tr>
+    </table>
+  </div>
+
+  <div class="test-section">
+    <h2>Troubleshooting</h2>
+    <h3 class="error">Issue: Cast window doesn't open</h3>
+    <ul>
+      <li>Check if popup blocker is active</li>
+      <li>Look for popup permission dialog in browser</li>
+      <li>Try allowing popups for localhost in browser settings</li>
+    </ul>
+
+    <h3 class="error">Issue: Video doesn't play in cast window</h3>
+    <ul>
+      <li>Check console for autoplay errors</li>
+      <li>Some browsers block autoplay - manually click play</li>
+      <li>Verify video source is accessible</li>
+    </ul>
+
+    <h3 class="error">Issue: Sync offset doesn't apply</h3>
+    <ul>
+      <li>Ensure casting is active (status shows "🟢")</li>
+      <li>Check console for <code>[Demo Cast]</code> log messages</li>
+      <li>Verify <code>state.castVideoOffset</code> is being set</li>
+    </ul>
+  </div>
+
+  <div class="test-section">
+    <h2>Console Commands for Testing</h2>
+    <pre><code>// Check if demo mode is available
+console.log('Demo cast available:', !!demoCastBtn);
+
+// Check current state
+console.log('Is casting:', state.isCasting);
+console.log('Is demo mode:', state.isDemoMode);
+console.log('Cast offset (ms):', state.castVideoOffset);
+
+// Force enable demo cast button (for testing without file)
+state.isSessionReady = true;
+demoCastBtn.disabled = false;
+
+// Check Remote Playback API availability
+console.log('Remote Playback API:', !!video.remote);
+
+// Monitor state changes
+setInterval(() => {
+  if (state.isCasting) {
+    console.log('Casting active - offset:', state.castVideoOffset, 'ms');
+  }
+}, 2000);</code></pre>
+  </div>
+
+  <div class="test-section">
+    <h2 class="success">✓ Testing Complete</h2>
+    <p>After testing, you should have verified:</p>
+    <ul>
+      <li>✅ Demo cast window opens and closes</li>
+      <li>✅ Sync offset controls update state</li>
+      <li>✅ Play/pause syncs between windows</li>
+      <li>✅ Console logging works</li>
+      <li>✅ UI states update correctly</li>
+      <li>✅ Disconnect functionality works</li>
+    </ul>
+    <p class="info">Now you can test with a real MP4 file or Chromecast device!</p>
+  </div>
+
+  <p style="text-align: center; margin-top: 40px; opacity: 0.5;">
+    <a href="index.html" style="color: #33d0ff;">← Back to StageSplit</a>
+  </p>
+</body>
+</html>

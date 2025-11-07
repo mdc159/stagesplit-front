@@ -8,6 +8,7 @@ const pauseBtn = document.getElementById('pause');
 const stopBtn = document.getElementById('stop');
 const statusLabel = document.getElementById('status');
 const castBtn = document.getElementById('castBtn');
+const demoCastBtn = document.getElementById('demoCastBtn');
 const castControls = document.getElementById('castControls');
 const castStatus = document.getElementById('castStatus');
 const disconnectCastBtn = document.getElementById('disconnectCast');
@@ -41,6 +42,8 @@ const state = {
   castVideoOffset: 0, // milliseconds to offset audio (positive = audio plays later)
   remotePlayback: null,
   castVideoStream: null,
+  demoCastWindow: null, // window reference for demo mode
+  isDemoMode: false,
 };
 
 let FFmpegCtor = null;
@@ -57,6 +60,7 @@ playBtn.addEventListener('click', () => startTransport());
 pauseBtn.addEventListener('click', () => pauseTransport());
 stopBtn.addEventListener('click', () => stopTransport());
 castBtn.addEventListener('click', () => initiateCast());
+demoCastBtn.addEventListener('click', () => initiateDemoCast());
 disconnectCastBtn.addEventListener('click', () => disconnectCast());
 syncOffsetSlider.addEventListener('input', () => updateSyncOffset());
 syncEarlierBtn.addEventListener('click', () => adjustSyncOffset(-50));
@@ -104,7 +108,7 @@ function setLoading(isLoading) {
 }
 
 function setTransportEnabled(enabled) {
-  [playBtn, pauseBtn, stopBtn, castBtn].forEach((btn) => {
+  [playBtn, pauseBtn, stopBtn, castBtn, demoCastBtn].forEach((btn) => {
     if (!btn) return;
     btn.disabled = !enabled;
     btn.setAttribute('aria-disabled', String(!enabled));
@@ -616,6 +620,13 @@ function handleCastDisconnected() {
 }
 
 async function disconnectCast() {
+  // Handle demo mode disconnect
+  if (state.isDemoMode) {
+    handleDemoCastDisconnected();
+    return;
+  }
+
+  // Handle real cast disconnect
   if (!state.remotePlayback) return;
 
   try {
@@ -666,6 +677,188 @@ function adjustSyncOffset(deltaMs) {
 function resetSyncOffset() {
   syncOffsetSlider.value = 0;
   updateSyncOffset();
+}
+
+/* ───────────────── demo cast functions (for local testing) ───────────────── */
+
+function initiateDemoCast() {
+  if (!state.isSessionReady) return;
+
+  console.log('[Demo Cast] Initiating demo cast mode...');
+
+  try {
+    // Create a new window for the "remote" video display
+    const castWindow = window.open('', 'StageSplit Cast Display', 'width=960,height=600');
+
+    if (!castWindow) {
+      reportError('Could not open cast window. Check popup blocker.');
+      return;
+    }
+
+    state.demoCastWindow = castWindow;
+    state.isDemoMode = true;
+
+    // Build the cast window HTML
+    castWindow.document.write(`
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="utf-8">
+        <title>StageSplit - Cast Display</title>
+        <style>
+          body {
+            margin: 0;
+            padding: 0;
+            background: #000;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            font-family: 'Segoe UI', sans-serif;
+          }
+          .cast-badge {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: rgba(51, 255, 102, 0.9);
+            color: #000;
+            padding: 8px 16px;
+            border-radius: 4px;
+            font-weight: bold;
+            font-size: 14px;
+            z-index: 1000;
+          }
+          video {
+            max-width: 100%;
+            max-height: 90vh;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.6);
+          }
+          .info {
+            color: #fff;
+            margin-top: 20px;
+            font-size: 14px;
+            opacity: 0.7;
+          }
+        </style>
+      </head>
+      <body>
+        <div class="cast-badge">🟢 DEMO CAST ACTIVE</div>
+        <video id="castVideo" autoplay muted playsinline></video>
+        <div class="info">Audio plays on main window • This simulates a cast device</div>
+      </body>
+      </html>
+    `);
+    castWindow.document.close();
+
+    // Get the video element in the cast window
+    const castVideo = castWindow.document.getElementById('castVideo');
+
+    // Share the video source with the cast window
+    castVideo.src = video.src;
+    castVideo.currentTime = video.currentTime;
+
+    // Sync playback state
+    if (!video.paused) {
+      castVideo.play().catch(err => console.warn('[Demo Cast] Auto-play failed:', err));
+    }
+
+    // Set up synchronization
+    setupDemoCastSync(castVideo);
+
+    // Update UI to show casting is active
+    handleDemoCastConnected();
+
+    // Monitor if window is closed
+    const checkWindowInterval = setInterval(() => {
+      if (castWindow.closed) {
+        clearInterval(checkWindowInterval);
+        handleDemoCastDisconnected();
+      }
+    }, 500);
+
+    console.log('[Demo Cast] Demo cast window opened successfully');
+
+  } catch (error) {
+    console.error('[Demo Cast] Failed to initiate demo cast:', error);
+    reportError(`Demo cast failed: ${error.message}`);
+    state.isDemoMode = false;
+    state.demoCastWindow = null;
+  }
+}
+
+function setupDemoCastSync(castVideo) {
+  // Sync play/pause/seek from main video to cast video
+  const syncPlay = () => {
+    if (state.demoCastWindow && !state.demoCastWindow.closed) {
+      console.log('[Demo Cast] Syncing play to cast window');
+      castVideo.play().catch(err => console.warn('[Demo Cast] Play failed:', err));
+    }
+  };
+
+  const syncPause = () => {
+    if (state.demoCastWindow && !state.demoCastWindow.closed) {
+      console.log('[Demo Cast] Syncing pause to cast window');
+      castVideo.pause();
+    }
+  };
+
+  const syncSeek = () => {
+    if (state.demoCastWindow && !state.demoCastWindow.closed) {
+      castVideo.currentTime = video.currentTime;
+      console.log('[Demo Cast] Syncing seek to:', video.currentTime);
+    }
+  };
+
+  // Store sync functions so we can remove them later
+  state.demoCastSyncHandlers = { syncPlay, syncPause, syncSeek };
+
+  video.addEventListener('play', syncPlay);
+  video.addEventListener('pause', syncPause);
+  video.addEventListener('seeked', syncSeek);
+}
+
+function handleDemoCastConnected() {
+  state.isCasting = true;
+  castBtn.style.display = 'none';
+  demoCastBtn.style.display = 'none';
+  disconnectCastBtn.style.display = 'inline-block';
+  castControls.style.display = 'block';
+  castStatus.textContent = '🟢 Demo Casting (Window)';
+  setStatus('Demo cast active. Video in separate window, audio plays locally.');
+
+  console.log('[Demo Cast] Connected');
+}
+
+function handleDemoCastDisconnected() {
+  console.log('[Demo Cast] Disconnecting...');
+
+  state.isCasting = false;
+  state.isDemoMode = false;
+
+  // Clean up event listeners
+  if (state.demoCastSyncHandlers) {
+    video.removeEventListener('play', state.demoCastSyncHandlers.syncPlay);
+    video.removeEventListener('pause', state.demoCastSyncHandlers.syncPause);
+    video.removeEventListener('seeked', state.demoCastSyncHandlers.syncSeek);
+    state.demoCastSyncHandlers = null;
+  }
+
+  // Close window if still open
+  if (state.demoCastWindow && !state.demoCastWindow.closed) {
+    state.demoCastWindow.close();
+  }
+  state.demoCastWindow = null;
+
+  // Update UI
+  castBtn.style.display = 'inline-block';
+  demoCastBtn.style.display = 'inline-block';
+  disconnectCastBtn.style.display = 'none';
+  castControls.style.display = 'none';
+  castStatus.textContent = '🔴 Not Casting';
+  setStatus('Demo cast disconnected.');
+
+  console.log('[Demo Cast] Disconnected');
 }
 
 // Public API expected by index.html
