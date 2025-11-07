@@ -7,6 +7,15 @@ const playBtn = document.getElementById('play');
 const pauseBtn = document.getElementById('pause');
 const stopBtn = document.getElementById('stop');
 const statusLabel = document.getElementById('status');
+const castBtn = document.getElementById('castBtn');
+const castControls = document.getElementById('castControls');
+const castStatus = document.getElementById('castStatus');
+const disconnectCastBtn = document.getElementById('disconnectCast');
+const syncOffsetSlider = document.getElementById('syncOffset');
+const offsetValueLabel = document.getElementById('offsetValue');
+const syncEarlierBtn = document.getElementById('syncEarlier');
+const syncResetBtn = document.getElementById('syncReset');
+const syncLaterBtn = document.getElementById('syncLater');
 
 const STEM_COUNT = 6;
 const DEFAULT_LABELS = ['Vocals', 'Drums', 'Bass', 'Guitar', 'Piano', 'Ambience'];
@@ -27,6 +36,11 @@ const state = {
   isSessionReady: false,
   isAudioRunning: false,
   mediaUrl: null,
+  // Casting state
+  isCasting: false,
+  castVideoOffset: 0, // milliseconds to offset audio (positive = audio plays later)
+  remotePlayback: null,
+  castVideoStream: null,
 };
 
 let FFmpegCtor = null;
@@ -42,6 +56,12 @@ filePicker.addEventListener('change', handleFileSelection);
 playBtn.addEventListener('click', () => startTransport());
 pauseBtn.addEventListener('click', () => pauseTransport());
 stopBtn.addEventListener('click', () => stopTransport());
+castBtn.addEventListener('click', () => initiateCast());
+disconnectCastBtn.addEventListener('click', () => disconnectCast());
+syncOffsetSlider.addEventListener('input', () => updateSyncOffset());
+syncEarlierBtn.addEventListener('click', () => adjustSyncOffset(-50));
+syncResetBtn.addEventListener('click', () => resetSyncOffset());
+syncLaterBtn.addEventListener('click', () => adjustSyncOffset(50));
 
 video.addEventListener('ended', () => stopTransport(true));
 video.addEventListener('timeupdate', () => {
@@ -84,7 +104,7 @@ function setLoading(isLoading) {
 }
 
 function setTransportEnabled(enabled) {
-  [playBtn, pauseBtn, stopBtn].forEach((btn) => {
+  [playBtn, pauseBtn, stopBtn, castBtn].forEach((btn) => {
     if (!btn) return;
     btn.disabled = !enabled;
     btn.setAttribute('aria-disabled', String(!enabled));
@@ -260,7 +280,12 @@ function startPlaybackAt(offsetSeconds) {
 
   stopPlayback(false);
 
-  const startTime = state.audioCtx.currentTime + START_DELAY;
+  // Apply cast sync offset to audio timing if casting
+  const audioDelay = state.isCasting
+    ? START_DELAY + (state.castVideoOffset / 1000)
+    : START_DELAY;
+
+  const startTime = state.audioCtx.currentTime + audioDelay;
   state.activeSourceCount = state.audioBuffers.length;
 
   state.sourceNodes = state.audioBuffers.map((buffer, index) => {
@@ -494,6 +519,153 @@ async function teardownSession() {
 
   setTransportEnabled(false);
   mixer.innerHTML = '';
+}
+
+/* ───────────────── casting functions ───────────────── */
+
+async function initiateCast() {
+  if (!state.isSessionReady) return;
+
+  try {
+    // Check if Remote Playback API is available
+    if (!video.remote) {
+      reportError('Casting not supported in this browser. Try Chrome or Edge.');
+      return;
+    }
+
+    state.remotePlayback = video.remote;
+
+    // Set up event listeners
+    state.remotePlayback.addEventListener('connecting', handleCastConnecting);
+    state.remotePlayback.addEventListener('connect', handleCastConnected);
+    state.remotePlayback.addEventListener('disconnect', handleCastDisconnected);
+
+    // Capture video-only stream (video element is already muted)
+    if (!state.castVideoStream) {
+      state.castVideoStream = video.captureStream();
+    }
+
+    // Prompt user to select a cast device
+    await state.remotePlayback.prompt();
+
+  } catch (error) {
+    console.error('Failed to initiate cast:', error);
+    if (error.name === 'NotSupportedError') {
+      reportError('Remote playback is not supported on this device.');
+    } else if (error.name === 'InvalidStateError') {
+      reportError('A remote playback session is already active.');
+    } else if (error.name === 'NotAllowedError') {
+      // User cancelled the prompt - not an error
+      setStatus('Cast cancelled.');
+    } else {
+      reportError(`Failed to cast: ${error.message}`);
+    }
+  }
+}
+
+function handleCastConnecting() {
+  castStatus.textContent = '🟡 Connecting...';
+  setStatus('Connecting to cast device...');
+}
+
+function handleCastConnected() {
+  state.isCasting = true;
+  castBtn.style.display = 'none';
+  disconnectCastBtn.style.display = 'inline-block';
+  castControls.style.display = 'block';
+  castStatus.textContent = '🟢 Casting';
+  setStatus('Casting video to remote device. Audio plays locally.');
+
+  // If currently playing, restart to apply sync offset
+  if (!video.paused) {
+    const wasPlaying = true;
+    const currentPos = state.currentOffset;
+    pauseTransport();
+    setTimeout(() => {
+      state.currentOffset = currentPos;
+      startTransport();
+    }, 100);
+  }
+}
+
+function handleCastDisconnected() {
+  state.isCasting = false;
+  castBtn.style.display = 'inline-block';
+  disconnectCastBtn.style.display = 'none';
+  castControls.style.display = 'none';
+  castStatus.textContent = '🔴 Not Casting';
+  setStatus('Cast disconnected.');
+
+  // Clean up event listeners
+  if (state.remotePlayback) {
+    state.remotePlayback.removeEventListener('connecting', handleCastConnecting);
+    state.remotePlayback.removeEventListener('connect', handleCastConnected);
+    state.remotePlayback.removeEventListener('disconnect', handleCastDisconnected);
+    state.remotePlayback = null;
+  }
+
+  // If playing, restart without offset
+  if (!video.paused) {
+    const currentPos = state.currentOffset;
+    pauseTransport();
+    setTimeout(() => {
+      state.currentOffset = currentPos;
+      startTransport();
+    }, 50);
+  }
+}
+
+async function disconnectCast() {
+  if (!state.remotePlayback) return;
+
+  try {
+    // Note: Remote Playback API doesn't have a direct disconnect method
+    // We need to stop the video, which will disconnect
+    const wasPlaying = !video.paused;
+    const currentPos = state.currentOffset;
+
+    stopTransport();
+
+    // Wait a bit for disconnect
+    await new Promise(resolve => setTimeout(resolve, 500));
+
+    // Restore playback position if was playing
+    if (wasPlaying) {
+      state.currentOffset = currentPos;
+      video.currentTime = currentPos;
+    }
+  } catch (error) {
+    console.error('Failed to disconnect cast:', error);
+    reportError('Failed to disconnect cast.');
+  }
+}
+
+function updateSyncOffset() {
+  const newOffset = parseInt(syncOffsetSlider.value);
+  offsetValueLabel.textContent = newOffset;
+  state.castVideoOffset = newOffset;
+
+  // If currently playing, restart to apply new offset
+  if (!video.paused && state.isCasting) {
+    const currentPos = state.currentOffset;
+    pauseTransport();
+    setTimeout(() => {
+      state.currentOffset = currentPos;
+      startTransport();
+    }, 50);
+  }
+}
+
+function adjustSyncOffset(deltaMs) {
+  const currentOffset = parseInt(syncOffsetSlider.value);
+  const newOffset = Math.max(-500, Math.min(500, currentOffset + deltaMs));
+  syncOffsetSlider.value = newOffset;
+  updateSyncOffset();
+}
+
+function resetSyncOffset() {
+  syncOffsetSlider.value = 0;
+  updateSyncOffset();
 }
 
 // Public API expected by index.html
