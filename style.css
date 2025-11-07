@@ -69,29 +69,32 @@ video {
 }
 
 #mixer {
-    display: flex;
-    justify-content: center;
-    margin-top: 25px;
-    gap: 32px;
-    flex-wrap: wrap;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+    max-width: 900px;
+    margin: 25px auto 0;
+    gap: 16px;
+    align-items: end;
+    padding: 0 20px;
 }
 
 .strip {
     display: flex;
     flex-direction: column;
     align-items: center;
-    width: 90px;
+    gap: 8px;
+    min-width: 100px;
 }
 
 .meter {
-    width: 22px;
-    height: 190px;
+    width: 24px;
+    height: 200px;
     background: linear-gradient(180deg, #2a2a30, #141417);
     border: 1px solid #3a3a42;
     border-radius: 4px;
-    margin-top: 5px;
     position: relative;
     overflow: hidden;
+    flex-shrink: 0;
 }
 
 .meter-fill {
@@ -105,33 +108,38 @@ video {
 
 .fader {
     appearance: none;
-    width: 180px;
+    width: 200px;
     height: 24px;
     transform: rotate(-90deg);
-    margin-top: 28px;
+    margin: 88px 0;
+    flex-shrink: 0;
 }
 
 .fader::-webkit-slider-thumb {
     appearance: none;
-    width: 16px;
-    height: 16px;
+    width: 18px;
+    height: 18px;
     border-radius: 50%;
     background: #fff;
     border: 2px solid #000;
+    cursor: pointer;
 }
 
 .fader::-moz-range-thumb {
-    width: 16px;
-    height: 16px;
+    width: 18px;
+    height: 18px;
     border-radius: 50%;
     background: #fff;
     border: 2px solid #000;
+    cursor: pointer;
 }
 
 .label {
-    margin-top: 18px;
     font-weight: 600;
     letter-spacing: 0.04em;
     text-transform: uppercase;
     font-size: 0.82rem;
+    text-align: center;
+    min-height: 1.2em;
+    flex-shrink: 0;
 }
