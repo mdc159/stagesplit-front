@@ -531,36 +531,73 @@ async function initiateCast() {
   if (!state.isSessionReady) return;
 
   try {
+    console.log('[Cast] Initiating cast...');
+
     // Check if Remote Playback API is available
     if (!video.remote) {
       reportError('Casting not supported in this browser. Try Chrome or Edge.');
+      console.error('[Cast] video.remote is undefined');
       return;
     }
 
+    console.log('[Cast] Remote Playback API available');
+    console.log('[Cast] Current state:', video.remote.state);
+    console.log('[Cast] Video src:', video.src);
+    console.log('[Cast] Video readyState:', video.readyState);
+
     state.remotePlayback = video.remote;
 
-    // Set up event listeners
+    // Check current state
+    if (state.remotePlayback.state === 'connected') {
+      console.warn('[Cast] Already connected to a remote device');
+      reportError('Already connected to a remote device. Disconnect first.');
+      return;
+    }
+
+    // Set up event listeners (remove old ones first to avoid duplicates)
+    state.remotePlayback.removeEventListener('connecting', handleCastConnecting);
+    state.remotePlayback.removeEventListener('connect', handleCastConnected);
+    state.remotePlayback.removeEventListener('disconnect', handleCastDisconnected);
+
     state.remotePlayback.addEventListener('connecting', handleCastConnecting);
     state.remotePlayback.addEventListener('connect', handleCastConnected);
     state.remotePlayback.addEventListener('disconnect', handleCastDisconnected);
 
+    console.log('[Cast] Event listeners attached');
+
     // Capture video-only stream (video element is already muted)
     if (!state.castVideoStream) {
       state.castVideoStream = video.captureStream();
+      console.log('[Cast] Video stream captured');
     }
 
     // Prompt user to select a cast device
+    console.log('[Cast] Showing device picker...');
     await state.remotePlayback.prompt();
+    console.log('[Cast] Prompt completed successfully');
 
   } catch (error) {
-    console.error('Failed to initiate cast:', error);
+    console.error('[Cast] Error during cast initiation:', error);
+    console.error('[Cast] Error name:', error.name);
+    console.error('[Cast] Error message:', error.message);
+
     if (error.name === 'NotSupportedError') {
       reportError('Remote playback is not supported on this device.');
     } else if (error.name === 'InvalidStateError') {
       reportError('A remote playback session is already active.');
     } else if (error.name === 'NotAllowedError') {
-      // User cancelled the prompt - not an error
-      setStatus('Cast cancelled.');
+      // This can mean: user cancelled OR video not ready OR autoplay policy
+      console.warn('[Cast] NotAllowedError - possible causes:');
+      console.warn('[Cast]   - User cancelled the dialog');
+      console.warn('[Cast]   - Video not loaded/ready');
+      console.warn('[Cast]   - Browser autoplay policy');
+
+      // Check if video is ready
+      if (video.readyState < 2) {
+        reportError('Video not ready for casting. Wait for video to load.');
+      } else {
+        setStatus('Cast cancelled or not allowed by browser.');
+      }
     } else {
       reportError(`Failed to cast: ${error.message}`);
     }
@@ -568,21 +605,26 @@ async function initiateCast() {
 }
 
 function handleCastConnecting() {
+  console.log('[Cast] Event: connecting');
   castStatus.textContent = '🟡 Connecting...';
   setStatus('Connecting to cast device...');
 }
 
 function handleCastConnected() {
+  console.log('[Cast] Event: connected');
   state.isCasting = true;
   castBtn.style.display = 'none';
+  demoCastBtn.style.display = 'none';
   disconnectCastBtn.style.display = 'inline-block';
   castControls.style.display = 'block';
   castStatus.textContent = '🟢 Casting';
   setStatus('Casting video to remote device. Audio plays locally.');
 
+  console.log('[Cast] UI updated, casting active');
+
   // If currently playing, restart to apply sync offset
   if (!video.paused) {
-    const wasPlaying = true;
+    console.log('[Cast] Video is playing, restarting with sync offset');
     const currentPos = state.currentOffset;
     pauseTransport();
     setTimeout(() => {
@@ -593,8 +635,10 @@ function handleCastConnected() {
 }
 
 function handleCastDisconnected() {
+  console.log('[Cast] Event: disconnected');
   state.isCasting = false;
   castBtn.style.display = 'inline-block';
+  demoCastBtn.style.display = 'inline-block';
   disconnectCastBtn.style.display = 'none';
   castControls.style.display = 'none';
   castStatus.textContent = '🔴 Not Casting';
@@ -607,6 +651,8 @@ function handleCastDisconnected() {
     state.remotePlayback.removeEventListener('disconnect', handleCastDisconnected);
     state.remotePlayback = null;
   }
+
+  console.log('[Cast] Cleaned up, UI restored');
 
   // If playing, restart without offset
   if (!video.paused) {

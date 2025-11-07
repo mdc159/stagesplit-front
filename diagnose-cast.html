@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Cast Diagnostics</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      background: #0d0d0f;
+      color: #ddd;
+      padding: 20px;
+      max-width: 900px;
+      margin: 0 auto;
+    }
+    h1 { color: #33ff66; }
+    .check {
+      background: #1a1a1e;
+      padding: 15px;
+      margin: 10px 0;
+      border-radius: 6px;
+      border-left: 4px solid #3a3a43;
+    }
+    .check.pass { border-left-color: #33ff66; }
+    .check.fail { border-left-color: #ff6673; }
+    .check.warn { border-left-color: #ffee33; }
+    .status { font-weight: bold; margin-bottom: 8px; }
+    .pass .status { color: #33ff66; }
+    .fail .status { color: #ff6673; }
+    .warn .status { color: #ffee33; }
+    button {
+      background: #1f1f23;
+      border: 1px solid #3a3a43;
+      color: #eee;
+      padding: 12px 24px;
+      font-size: 16px;
+      border-radius: 4px;
+      cursor: pointer;
+      margin: 10px 5px;
+    }
+    button:hover { background: #2c2c33; }
+    code {
+      background: #0d0d0f;
+      padding: 2px 6px;
+      border-radius: 3px;
+    }
+    pre {
+      background: #0d0d0f;
+      padding: 12px;
+      border-radius: 4px;
+      overflow-x: auto;
+    }
+  </style>
+</head>
+<body>
+  <h1>🔍 Cast Diagnostics</h1>
+  <p>This tool checks if your browser and environment support casting.</p>
+
+  <button onclick="runDiagnostics()">Run Diagnostics</button>
+  <button onclick="testCast()">Test Cast</button>
+  <button onclick="location.reload()">Refresh</button>
+
+  <div id="results"></div>
+
+  <script>
+    function runDiagnostics() {
+      const results = document.getElementById('results');
+      results.innerHTML = '';
+
+      const checks = [
+        {
+          name: 'Browser Support',
+          test: () => {
+            const isChrome = /Chrome/.test(navigator.userAgent);
+            const isEdge = /Edg/.test(navigator.userAgent);
+            return {
+              pass: isChrome || isEdge,
+              message: isChrome ? 'Chrome detected ✓' : isEdge ? 'Edge detected ✓' : 'Not Chrome/Edge - casting may not work',
+              details: `User Agent: ${navigator.userAgent.substring(0, 100)}...`
+            };
+          }
+        },
+        {
+          name: 'Remote Playback API',
+          test: () => {
+            const video = document.createElement('video');
+            const supported = 'remote' in video;
+            return {
+              pass: supported,
+              message: supported ? 'Remote Playback API is available ✓' : 'Remote Playback API not found ✗',
+              details: supported ? `State: ${video.remote.state}` : 'This browser does not support video.remote'
+            };
+          }
+        },
+        {
+          name: 'Network',
+          test: () => {
+            const online = navigator.onLine;
+            return {
+              pass: online,
+              message: online ? 'Browser reports online ✓' : 'Browser reports offline ✗',
+              details: online ? 'Network appears available' : 'Check your network connection'
+            };
+          }
+        },
+        {
+          name: 'Secure Context',
+          test: () => {
+            const secure = window.isSecureContext;
+            return {
+              pass: true, // Not required for Remote Playback, but good to check
+              warn: !secure,
+              message: secure ? 'Secure context (HTTPS/localhost) ✓' : 'Not a secure context',
+              details: secure ? 'Running in secure context' : 'Some features may be limited'
+            };
+          }
+        },
+        {
+          name: 'HTMLVideoElement',
+          test: () => {
+            try {
+              const video = document.createElement('video');
+              const hasRequired = 'play' in video && 'pause' in video && 'currentTime' in video;
+              return {
+                pass: hasRequired,
+                message: hasRequired ? 'HTMLVideoElement fully supported ✓' : 'Video element missing methods ✗',
+                details: `Can create video elements: ${!!video}`
+              };
+            } catch (e) {
+              return {
+                pass: false,
+                message: 'Failed to create video element ✗',
+                details: e.message
+              };
+            }
+          }
+        },
+        {
+          name: 'Media Capture API',
+          test: () => {
+            const video = document.createElement('video');
+            const supported = typeof video.captureStream === 'function';
+            return {
+              pass: supported,
+              message: supported ? 'captureStream() available ✓' : 'captureStream() not available ✗',
+              details: supported ? 'Can capture video streams' : 'Browser may not support stream capture'
+            };
+          }
+        }
+      ];
+
+      checks.forEach(check => {
+        const result = check.test();
+        const div = document.createElement('div');
+        div.className = `check ${result.pass ? 'pass' : result.warn ? 'warn' : 'fail'}`;
+        div.innerHTML = `
+          <div class="status">${result.pass ? '✓' : result.warn ? '⚠' : '✗'} ${check.name}</div>
+          <div>${result.message}</div>
+          <div style="margin-top: 8px; opacity: 0.7; font-size: 14px;">${result.details}</div>
+        `;
+        results.appendChild(div);
+      });
+
+      // Summary
+      const summary = document.createElement('div');
+      const passed = checks.filter(c => c.test().pass).length;
+      const total = checks.length;
+      summary.className = `check ${passed === total ? 'pass' : passed > total / 2 ? 'warn' : 'fail'}`;
+      summary.innerHTML = `
+        <div class="status">Summary</div>
+        <div>${passed} of ${total} checks passed</div>
+        <div style="margin-top: 8px;">${
+          passed === total ? 'Casting should work! ✓' :
+          passed > total / 2 ? 'Casting might work with limitations ⚠' :
+          'Casting likely will not work ✗'
+        }</div>
+      `;
+      results.appendChild(summary);
+    }
+
+    function testCast() {
+      const video = document.createElement('video');
+      video.src = 'data:video/mp4;base64,AAAAIGZ0eXBpc29tAAACAGlzb21pc28yYXZjMW1wNDEAAAAIZnJlZQAAAr1tZGF0AAACrgYF//+q3EXpvebZSLeWLNgg2SPu73gyNjQgLSBjb3JlIDE0OCByMjY0MyA1YzY1NzA0IC0gSC4yNjQvTVBFRy00IEFWQyBjb2RlYyAtIENvcHlsZWZ0IDIwMDMtMjAxNSAtIGh0dHA6Ly93d3cudmlkZW9sYW4ub3JnL3gyNjQuaHRtbCAtIG9wdGlvbnM6IGNhYmFjPTEgcmVmPTMgZGVibG9jaz0xOjA6MCBhbmFseXNlPTB4MzoweDExMyBtZT1oZXggc3VibWU9NyBwc3k9MSBwc3lfcmQ9MS4wMDowLjAwIG1peGVkX3JlZj0xIG1lX3JhbmdlPTE2IGNocm9tYV9tZT0xIHRyZWxsaXM9MSA4eDhkY3Q9MSBjcW09MCBkZWFkem9uZT0yMSwxMSBmYXN0X3Bza2lwPTEgY2hyb21hX3FwX29mZnNldD0tMiB0aHJlYWRzPTEyIGxvb2thaGVhZF90aHJlYWRzPTIgc2xpY2VkX3RocmVhZHM9MCBucj0wIGRlY2ltYXRlPTEgaW50ZXJsYWNlZD0wIGJsdXJheV9jb21wYXQ9MCBjb25zdHJhaW5lZF9pbnRyYT0wIGJmcmFtZXM9MyBiX3B5cmFtaWQ9MiBiX2FkYXB0PTEgYl9iaWFzPTAgZGlyZWN0PTEgd2VpZ2h0Yj0xIG9wZW5fZ29wPTAgd2VpZ2h0cD0yIGtleWludD0yNTAga2V5aW50X21pbj0yNSBzY2VuZWN1dD00MCBpbnRyYV9yZWZyZXNoPTAgcmNfbG9va2FoZWFkPTQwIHJjPWNyZiBtYnRyZWU9MSBjcmY9MjMuMCBxY29tcD0wLjYwIHFwbWluPTAgcXBtYXg9NjkgcXBzdGVwPTQgaXBfcmF0aW89MS40MCBhcT0xOjEuMDAAgAAAAA9liIQAV/0TAAYdeBTXzg8AAALvbW9vdgAAAGxtdmhkAAAAAAAAAAAAAAAAAAAD6AAAACoAAQAAAQAAAAAAAAAAAAAAAAEAAAAAAAAAAAAAAAAAAAABAAAAAAAAAAAAAAAAAABAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAgAAACB0cmFrAAAAXHRraGQAAAAPAAAAAAAAAAAAAAABAAAAAAAAACoAAAAAAAAAAAAAAAAAAAAAAAEAAAAAAAAAAAAAAAAAAAABAAAAAAAAAAAAAAAAAABAAAAAAAgAAAAIAAAAAACRlZHRzAAAAHGVsc3QAAAAAAAAAAQAAACQAAAQAAQAAAAAAAA=='; // tiny test video
+
+      if (!video.remote) {
+        alert('❌ Remote Playback API not available in this browser.');
+        return;
+      }
+
+      console.log('Testing cast with dummy video...');
+      console.log('Remote Playback state:', video.remote.state);
+
+      video.remote.addEventListener('connecting', () => {
+        console.log('✓ Cast connecting...');
+        alert('🟡 Cast connecting! Select a device.');
+      });
+
+      video.remote.addEventListener('connect', () => {
+        console.log('✓ Cast connected!');
+        alert('🟢 Cast connected successfully!');
+      });
+
+      video.remote.addEventListener('disconnect', () => {
+        console.log('✓ Cast disconnected');
+        alert('🔴 Cast disconnected');
+      });
+
+      video.remote.prompt()
+        .then(() => {
+          console.log('✓ Prompt succeeded');
+        })
+        .catch(error => {
+          console.error('✗ Cast test failed:', error);
+          alert(`❌ Cast test failed: ${error.name}\n${error.message}\n\nCheck console for details.`);
+        });
+    }
+
+    // Auto-run on load
+    window.addEventListener('load', runDiagnostics);
+  </script>
+</body>
+</html>
