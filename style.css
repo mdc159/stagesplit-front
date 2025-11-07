@@ -143,3 +143,105 @@ video {
     min-height: 1.2em;
     flex-shrink: 0;
 }
+
+/* Casting Controls */
+.cast-panel {
+    max-width: 900px;
+    margin: 20px auto;
+    padding: 16px 20px;
+    background: #1a1a1e;
+    border: 1px solid #3a3a43;
+    border-radius: 6px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.cast-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 16px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid #2a2a33;
+}
+
+#castStatus {
+    font-weight: 600;
+    font-size: 0.95rem;
+}
+
+.cast-sync-control {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.cast-sync-control label {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    font-size: 0.9rem;
+    color: #aaa;
+}
+
+.sync-hint {
+    font-size: 0.8rem;
+    color: #777;
+    font-style: italic;
+}
+
+#offsetValue {
+    font-weight: 700;
+    color: #fff;
+    font-size: 1rem;
+}
+
+#syncOffset {
+    width: 100%;
+    height: 6px;
+    appearance: none;
+    background: linear-gradient(90deg, #ff6b33 0%, #33ff66 50%, #33d0ff 100%);
+    border-radius: 3px;
+    outline: none;
+    cursor: pointer;
+}
+
+#syncOffset::-webkit-slider-thumb {
+    appearance: none;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: #fff;
+    border: 3px solid #000;
+    cursor: grab;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
+}
+
+#syncOffset::-webkit-slider-thumb:active {
+    cursor: grabbing;
+}
+
+#syncOffset::-moz-range-thumb {
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: #fff;
+    border: 3px solid #000;
+    cursor: grab;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
+}
+
+#syncOffset::-moz-range-thumb:active {
+    cursor: grabbing;
+}
+
+.sync-buttons {
+    display: flex;
+    gap: 8px;
+    justify-content: center;
+    flex-wrap: wrap;
+}
+
+.sync-buttons button {
+    font-size: 0.85rem;
+    padding: 6px 12px;
+}
